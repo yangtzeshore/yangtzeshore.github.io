@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+<meta name="msvalidate.01" content="17A55F9509852879F9CD357ED4788B7A" />
+<meta name="baidu-site-verification" content="code-3R53OPxtRu" />
+<meta name="google-site-verification" content="QFLRBQwJh5H7mRBWzxKk0lyyHubVh-RudJrC9McRk5A" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言：&amp;emsp;&amp;emsp;这篇文章取自这篇博客，作为整理和收录，方便后续查阅。 问题 前段时间，在网上看到一道面试题： 如何用redis存储统计1亿用户一年的登陆情况，并快速检索任意时间窗口内的活跃用户数量。 觉得很有意思，就仔细想了下 。并做了一系列实验，自己模拟了下 。还是有点收获的，现整理下来。和大家一起分享。 Redis是一个内存数据库，采用单线程和事件驱动的机制来处理网络请求。实际生">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 如何存储上亿级别的用户状态？">
+<meta property="og:url" content="http://example.com/2021/01/11/Redis%20%E5%A6%82%E4%BD%95%E5%AD%98%E5%82%A8%E4%B8%8A%E4%BA%BF%E7%BA%A7%E5%88%AB%E7%9A%84%E7%94%A8%E6%88%B7%E7%8A%B6%E6%80%81/index.html">
+<meta property="og:site_name" content="Pengchen&#39;s Blog">
+<meta property="og:description" content="前言：&amp;emsp;&amp;emsp;这篇文章取自这篇博客，作为整理和收录，方便后续查阅。 问题 前段时间，在网上看到一道面试题： 如何用redis存储统计1亿用户一年的登陆情况，并快速检索任意时间窗口内的活跃用户数量。 觉得很有意思，就仔细想了下 。并做了一系列实验，自己模拟了下 。还是有点收获的，现整理下来。和大家一起分享。 Redis是一个内存数据库，采用单线程和事件驱动的机制来处理网络请求。实际生">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi1.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi2.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi3.png">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi4.png">
+<meta property="article:published_time" content="2021-01-11T14:02:19.000Z">
+<meta property="article:modified_time" content="2021-01-11T14:17:24.594Z">
+<meta property="article:author" content="Peng Chen">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="上亿级别">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi1.png">
+
+<link rel="canonical" href="http://example.com/2021/01/11/Redis%20%E5%A6%82%E4%BD%95%E5%AD%98%E5%82%A8%E4%B8%8A%E4%BA%BF%E7%BA%A7%E5%88%AB%E7%9A%84%E7%94%A8%E6%88%B7%E7%8A%B6%E6%80%81/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Redis 如何存储上亿级别的用户状态？ | Pengchen's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Pengchen's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">世界无限广阔，好男儿切莫固步自封</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/11/Redis%20%E5%A6%82%E4%BD%95%E5%AD%98%E5%82%A8%E4%B8%8A%E4%BA%BF%E7%BA%A7%E5%88%AB%E7%9A%84%E7%94%A8%E6%88%B7%E7%8A%B6%E6%80%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Peng Chen">
+      <meta itemprop="description" content="彭晨的简单记录">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Pengchen's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Redis 如何存储上亿级别的用户状态？
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-11 22:02:19 / 修改时间：22:17:24" itemprop="dateCreated datePublished" datetime="2021-01-11T22:02:19+08:00">2021-01-11</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Redis/" itemprop="url" rel="index"><span itemprop="name">Redis</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="前言："><a href="#前言：" class="headerlink" title="前言："></a>前言：</h3><p>&emsp;&emsp;这篇文章取自<a href="www.jianshu.com/p/ee79ae681b74">这篇博客</a>，作为整理和收录，方便后续查阅。</p>
+<h3 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h3><hr>
+<p>前段时间，在网上看到一道面试题：</p>
+<p><strong>如何用redis存储统计1亿用户一年的登陆情况，并快速检索任意时间窗口内的活跃用户数量。</strong></p>
+<p>觉得很有意思，就仔细想了下 。并做了一系列实验，自己模拟了下 。还是有点收获的，现整理下来。和大家一起分享。</p>
+<p>Redis是一个内存数据库，采用单线程和事件驱动的机制来处理网络请求。实际生产的QPS和TPS单台都能达到3,4W，读写性能非常棒。用来存储一些对核心业务弱影响的用户状态信息还是非常不错的。</p>
+<p><strong>对于这题，有2个重要的点需要考虑：</strong></p>
+<p>1.如何用合适的数据类型来存储1亿用户的数据，用普通的字符串来存储肯定不行。经过查看一个最简单的kv(key为aaa，value为1)的内存占用，发现为48byte。</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi1.png" alt="图片"></p>
+<p>假设每个用户每天登陆需要占据1对KV的话，那一亿就是(48*100000000)/1024/1024/1024=4.47G。这还是一天的量。</p>
+<p>2.如何满足搜索，redis是一个键值对的内存结构，只能根据key来进行定位value值，无法做到像elastic search那样对文档进行倒排索引快速全文检索。</p>
+<p>redis其实有这种数据结构的，可以以很少的空间来存储大量的信息。</p>
+<h3 id="bitmap"><a href="#bitmap" class="headerlink" title="bitmap"></a>bitmap</h3><hr>
+<p>在redis 2.2.0版本之后，新增了一个位图数据，其实它不是一种数据结构。实际上它就是一个一个字符串结构，只不过value是一个二进制数据，每一位只能是0或者1。</p>
+<p>redis单独对bitmap提供了一套命令。可以对任意一位进行设置和读取。</p>
+<p>bitmap的核心命令：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SETBIT</span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>语法：SETBIT key offset value</p>
+<p>例如：</p>
+<p>setbit abc 5 1 ——&gt; 00001</p>
+<p>setbit abc 2 1 ——&gt; 00101</p>
+</blockquote>
+<p>GETBIT</p>
+<blockquote>
+<p>语法：GETBIT key offset</p>
+<p>例如：</p>
+<p>getbit abc 5 ——&gt; 1</p>
+<p>getbit abc 1 ——&gt; 0</p>
+</blockquote>
+<p>bitmap的其他命令还有bitcount，bitcount，bitpos，bitop等命令。都是对位的操作。</p>
+<p>因为bitmap的每一位只占据1bit的空间 ，所以利用这个特性我们可以把每一天作为key，value为1亿用户的活跃度状态。假设一个用户一天内只要登录了一次就算活跃。活跃我们就记为1，不活跃我们就记为0。把用户Id作为偏移量(offset)。这样我们一个key就可以存储1亿用户的活跃状态。</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi2.png" alt="图片"></p>
+<p>我们再来算下，这样一个位图结构的值对象占据多少空间。每一个位是1bit，一亿用户就是一亿bit。8bit=1Byte</p>
+<p>100000000/8/1024/1024=11.92M</p>
+<p>我用测试工程往一个key里通过lua塞进了1亿个bit，然后用rdb tools对内存进行统计，实测如下：</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi3.png" alt="图片"></p>
+<p>一天1亿用户也就消耗12M的内存空间。这完全符合要求。1年的话也就4个G。几年下来的话，redis可以集群部署来进行扩容存储。我们也可以用位图压缩算法对bitmap进行压缩存储。例如WAH，EWAH，Roaring Bitmaps。这个以后可以单独拉出来聊聊。</p>
+<p>我们把每一天1亿用户的登陆状态都用bitmap的形式存进了redis，那要获取某一天id为88000的用户是否活跃，直接使用<code>getbit</code>命令：</p>
+<blockquote>
+<p>getbit 2020-01-01 88000 [时间复杂度为O(1)]</p>
+</blockquote>
+<p>如果要统计某一天的所有的活跃用户数，使用<code>bitcount</code>命令，bitcount可以统计1的个数，也就是活跃用户数：</p>
+<blockquote>
+<p>bitcount 2019-01-01 [时间复杂度为O(N)]</p>
+</blockquote>
+<p>如果要统计某一段时间内的活跃用户数，需要用到bitop命令。这个命令提供四种位运算，<code>AND(与)</code>，<code>(OR)或</code>，<code>XOR(亦或)</code>，<code>NOT(非)</code>。我们可以对某一段时间内的所有key进行<code>OR(或)</code>操作，或操作出来的位图是0的就代表这段时间内一次都没有登陆的用户。那只要我们求出1的个数就可以了。以下例子求出了2019-01-01到2019-01-05这段时间内的活跃用户数。</p>
+<blockquote>
+<p>bitop or result 2019-01-01 2019-01-02 2019-01-03 2019-01-04 2019-01-05 [时间复杂度为O(N)]</p>
+<p>bitcount result</p>
+</blockquote>
+<p>从时间复杂度上说，无论是统计某一天，还是统计一段时间。在实际测试时，基本上都是秒出的。符合我们的预期。</p>
+<h3 id="bitmap使用场景"><a href="#bitmap使用场景" class="headerlink" title="bitmap使用场景"></a>bitmap使用场景</h3><hr>
+<p>bitmap可以很好的满足一些需要记录大量而简单信息的场景。所占空间十分小。通常来说使用场景分2类：</p>
+<p>1.某一业务对象的横向扩展，key为某一个业务对象的id，比如记录某一个终端的功能开关，1代表开，0代表关。基本可以无限扩展，可以记录2^32个位信息。不过这种用法由于key上带有了业务对象的id，导致了key的存储空间大于了value的存储空间，从空间使用角度上来看有一定的优化空间。</p>
+<p>2.某一业务的纵向扩展，key为某一个业务，把每一个业务对象的id作为偏移量记录到位上。这道面试题的例子就是用此法来进行解决。十分巧妙的利用了用户的id作为偏移量来找到相对应的值。当业务对象数量超过2^32时（约等于42亿），还可以分片存储。</p>
+<p>看起来bitmap完美的解决了存储和统计的问题。那有没有比这个更加省空间的存储吗？</p>
+<p>答案是有的。</p>
+<h3 id="HyperLogLog"><a href="#HyperLogLog" class="headerlink" title="HyperLogLog"></a>HyperLogLog</h3><hr>
+<p>redis从2.8.9之后增加了HyperLogLog数据结构。这个数据结构，根据redis的官网介绍，这是一个概率数据结构，用来估算数据的基数。能通过牺牲准确率来减少内存空间的消耗。</p>
+<p>我们先来看看HyperLogLog的方法</p>
+<blockquote>
+<p>PFADD  添加一个元素，如果重复，只算作一个</p>
+<p>PFCOUNT  返回元素数量的近似值</p>
+<p>PFMERGE  将多个 HyperLogLog 合并为一个 HyperLogLog</p>
+</blockquote>
+<p>这很好理解，是不是。那我们就来看看同样是存储一亿用户的活跃度，HyperLogLog数据结构需要多少空间。是不是比bitmap更加省空间呢。</p>
+<p>我通过测试工程往HyperLogLog里PFADD了一亿个元素。通过rdb tools工具统计了这个key的信息：</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/Redis/yi4.png" alt="图片"></p>
+<p>只需要14392 Bytes！也就是14KB的空间。对，你没看错。就是14K。bitmap存储一亿需要12M，而HyperLogLog只需要14K的空间。</p>
+<p>这是一个很惊人的结果。我似乎有点不敢相信使用如此小的空间竟能存储如此大的数据量。</p>
+<p>接下来我又放了1000w数据，统计出来还是14k。也就是说，无论你放多少数据进去，都是14K。</p>
+<p>查了文档，发现HyperLogLog是一种概率性数据结构，在标准误差0.81%的前提下，能够统计2^64个数据。所以 HyperLogLog 适合在比如统计日活月活此类的对精度要不不高的场景。</p>
+<p>HyperLogLog使用概率算法来统计集合的近似基数。而它算法的最本源则是伯努利过程。</p>
+<p>伯努利过程就是一个抛硬币实验的过程。抛一枚正常硬币，落地可能是正面，也可能是反面，二者的概率都是 1/2 。伯努利过程就是一直抛硬币，直到落地时出现正面位置，并记录下抛掷次数k。比如说，抛一次硬币就出现正面了，此时 k 为 1; 第一次抛硬币是反面，则继续抛，直到第三次才出现正面，此时 k 为 3。</p>
+<p>对于 n 次伯努利过程，我们会得到 n 个出现正面的投掷次数值 k1, k2 … kn , 其中这里的最大值是k_max。</p>
+<p>根据一顿数学推导，我们可以得出一个结论：2^{k_ max} 来作为n的估计值。也就是说你可以根据最大投掷次数近似的推算出进行了几次伯努利过程。</p>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><hr>
+<p>虽然HyperLogLog数据类型这么牛逼，但终究不是精确统计。只适用于对精度要求不高的场景。而且这种类型无法得出每个用户的活跃度信息。毕竟只有14K嘛。也不可能存储下那么多数量的信息。</p>
+<p>总结一下：对于文章开头所提到的面试题来说，用bitmap和HyperLogLog都可以解决。</p>
+<p>bitmap的优势是：非常均衡的特性，精准统计，可以得到每个统计对象的状态，秒出。缺点是：当你的统计对象数量十分十分巨大时，可能会占用到一点存储空间，但也可在接受范围内。也可以通过分片，或者压缩的额外手段去解决。</p>
+<p>HyperLogLog的优势是：可以统计夸张到无法想象的数量，并且占用小的夸张的内存。缺点是：建立在牺牲准确率的基础上，而且无法得到每个统计对象的状态。</p>
+<h3 id="参考文章"><a href="#参考文章" class="headerlink" title="参考文章"></a>参考文章</h3><p><a href="www.jianshu.com/p/ee79ae681b74">1. Redis 如何存储上亿级别的用户状态？</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Redis/" rel="tag"># Redis</a>
+              <a href="/tags/%E4%B8%8A%E4%BA%BF%E7%BA%A7%E5%88%AB/" rel="tag"># 上亿级别</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/11/IntegerToRoman/" rel="prev" title="IntegerToRoman">
+      <i class="fa fa-chevron-left"></i> IntegerToRoman
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/12/RomanToInteger/" rel="next" title="IntegerToRoman">
+      IntegerToRoman <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%8D%E8%A8%80%EF%BC%9A"><span class="nav-number">1.</span> <span class="nav-text">前言：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#bitmap"><span class="nav-number">3.</span> <span class="nav-text">bitmap</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#bitmap%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">4.</span> <span class="nav-text">bitmap使用场景</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#HyperLogLog"><span class="nav-number">5.</span> <span class="nav-text">HyperLogLog</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%AB%A0"><span class="nav-number">7.</span> <span class="nav-text">参考文章</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Peng Chen</p>
+  <div class="site-description" itemprop="description">彭晨的简单记录</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">144</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">21</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:772307865@qq.com" title="E-Mail → mailto:772307865@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Peng Chen</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'ccc38a4b622b8527424c',
+      clientSecret: '0e4d8c63f1c5b609eddc7005aeaab0cf15c0235f',
+      repo        : 'comments',
+      owner       : 'yangtzeshore',
+      admin       : ['yangtzeshore'],
+      id          : '78837b8c9e5112e72b7bfd7f6b711337',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.2.0">
+<meta name="msvalidate.01" content="17A55F9509852879F9CD357ED4788B7A" />
+<meta name="baidu-site-verification" content="code-3R53OPxtRu" />
+<meta name="google-site-verification" content="QFLRBQwJh5H7mRBWzxKk0lyyHubVh-RudJrC9McRk5A" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言&amp;emsp;&amp;emsp;这篇文章取自这篇博客，作为整理和收录，方便后续查阅。本篇文章非常推荐，与作者接下来的几篇文章都很不错，对于网上的分布式理论见解很深，且引的参考文章都很不错，可以参考看看，提升分布式系统理解很有帮助。 &amp;emsp;&amp;emsp;当前这篇文章至少比计划拖后了两个月。在上一篇文章《条分缕析分布式：到底什么是一致性？》中，我们仔细辨析了「一致性」相关的几个容易混淆的概念。而在本文">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式系统原理——101. 条分缕析分布式：浅析强弱一致性">
+<meta property="og:url" content="http://example.com/2021/01/03/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-101-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E6%B5%85%E6%9E%90%E5%BC%BA%E5%BC%B1%E4%B8%80%E8%87%B4%E6%80%A7/index.html">
+<meta property="og:site_name" content="Pengchen&#39;s Blog">
+<meta property="og:description" content="前言&amp;emsp;&amp;emsp;这篇文章取自这篇博客，作为整理和收录，方便后续查阅。本篇文章非常推荐，与作者接下来的几篇文章都很不错，对于网上的分布式理论见解很深，且引的参考文章都很不错，可以参考看看，提升分布式系统理解很有帮助。 &amp;emsp;&amp;emsp;当前这篇文章至少比计划拖后了两个月。在上一篇文章《条分缕析分布式：到底什么是一致性？》中，我们仔细辨析了「一致性」相关的几个容易混淆的概念。而在本文">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/1.webp">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/2.webp">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/3.webp">
+<meta property="og:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/4.webp">
+<meta property="article:published_time" content="2021-01-03T09:55:33.000Z">
+<meta property="article:modified_time" content="2021-01-03T10:10:43.036Z">
+<meta property="article:author" content="Peng Chen">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="系统原理">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/1.webp">
+
+<link rel="canonical" href="http://example.com/2021/01/03/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-101-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E6%B5%85%E6%9E%90%E5%BC%BA%E5%BC%B1%E4%B8%80%E8%87%B4%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>分布式系统原理——101. 条分缕析分布式：浅析强弱一致性 | Pengchen's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Pengchen's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">世界无限广阔，好男儿切莫固步自封</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/01/03/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-101-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E6%B5%85%E6%9E%90%E5%BC%BA%E5%BC%B1%E4%B8%80%E8%87%B4%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Peng Chen">
+      <meta itemprop="description" content="彭晨的简单记录">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Pengchen's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式系统原理——101. 条分缕析分布式：浅析强弱一致性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-01-03 17:55:33 / 修改时间：18:10:43" itemprop="dateCreated datePublished" datetime="2021-01-03T17:55:33+08:00">2021-01-03</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/" itemprop="url" rel="index"><span itemprop="name">分布式</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h3 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h3><p>&emsp;&emsp;这篇文章取自<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzA4NTg1MjM0Mg==&amp;mid=2657261790&amp;idx=1&amp;sn=08449ee5b39d93b25442c1e583e3ba99&amp;scene=21#wechat_redirect">这篇博客</a>，作为整理和收录，方便后续查阅。本篇文章非常推荐，与作者接下来的几篇文章都很不错，对于网上的分布式理论见解很深，且引的参考文章都很不错，可以参考看看，提升分布式系统理解很有帮助。</p>
+<p>&emsp;&emsp;当前这篇文章至少比计划拖后了两个月。在上一篇文章《<a target="_blank" rel="noopener" href="https://yangtzeshore.github.io/2021/01/02/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-100-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E5%88%B0%E5%BA%95%E4%BB%80%E4%B9%88%E6%98%AF%E4%B8%80%E8%87%B4%E6%80%A7/">条分缕析分布式：到底什么是一致性？</a>》中，我们仔细辨析了「一致性」相关的几个容易混淆的概念。而在本文中，我们会沿着逐步深入的思路，跟大家继续讨论顺序一致性、线性一致性、最终一致性等几个概念。</p>
+<p>为了避免产生歧义，我们先明确一下这几个概念的英文表达：</p>
+<ul>
+<li>顺序一致性的英文是：<em>sequential consistency</em>。</li>
+<li>线性一致性的英文是：<em>linearizability</em>。实际上，它就是CAP定理中的C，我们在<a target="_blank" rel="noopener" href="https://yangtzeshore.github.io/2021/01/02/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-100-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E5%88%B0%E5%BA%95%E4%BB%80%E4%B9%88%E6%98%AF%E4%B8%80%E8%87%B4%E6%80%A7/">上一篇文章</a>中已经提到过。</li>
+<li>最终一致性的英文是：<em>eventual consistency</em>。</li>
+</ul>
+<p>&emsp;&emsp;在进行详细的技术性讨论之前，我们先把本文要讨论的几个重点问题和结论列出如下：</p>
+<ul>
+<li>线性一致性和顺序一致性，属于分布式系统的一致性模型 (<em>consistency model</em>)。这代表了分布式系统的一个非常非常重要的方面。</li>
+<li>通常人们把线性一致性称为「强一致性」，把最终一致性称为「弱一致性」，但线性一致性和最终一致性其实存在本质的区别。严格来说，它们并不是一个范畴的概念。</li>
+<li>一致性模型之间的「强弱」比较，是一个相对的概念。比如，线性一致性是比顺序一致性更强的一致性模型。当然，除了线性一致性和顺序一致性，也存在其它一些一致性模型（其中很多都比顺序一致性要弱）。</li>
+<li>满足线性一致性的系统，也必定满足顺序一致性，但反过来不一定。这是由一致性模型之间的强弱关系决定的。</li>
+</ul>
+<p>&emsp;&emsp;下面，我们就开始详细的解析。</p>
+<h3 id="一致性模型的来历"><a href="#一致性模型的来历" class="headerlink" title="一致性模型的来历"></a>一致性模型的来历</h3><p>&emsp;&emsp;我们之所以使用分布式系统，无非是因为分布式系统能带来一些「好处」，比如容错性、可扩展性等等。为了获得这些「好处」，分布式系统实现上常用的方法是复制 (<em>replication</em>) 和分片 (<em>sharding</em>)。而我们将要讨论的一致性模型 (<em>consistency model</em>)，主要是与复制有关。因此这里我们先关注一下复制的机制。</p>
+<p>&emsp;&emsp;复制指的是将同一份数据保存在多个网络节点上。而保存同一份数据拷贝的节点，被称为副本 (replica)。复制带来的具体「好处」主要是体现在两个方面：</p>
+<ul>
+<li>容错 (<em>fault tolerance</em>)。即使某些网络节点发生故障，由于原本保存着在故障节点上的数据在正常节点上还有备份，所以整个系统仍然可能是可用的。这也是我们期待分布式系统能够提供的「高可用」特性。</li>
+<li>提升吞吐量。将一份数据复制多份并保存在多个副本节点上，还顺便带来一个好处：对于同一个数据对象的访问请求（至少是读请求）可以由多个副本节点分担，从而使得整个系统可以随着请求量的增加不断扩展。</li>
+</ul>
+<p>&emsp;&emsp;一方面，复制带来了诸多好处；另一方面，它也带来了很多挑战，其中最重要的一个就是数据的一致性问题。由于同一份数据保存在了多个副本节点上，它们之间就存在数据不一致的风险。我们当然希望同一份数据的不同副本总是保持一致。换句话说，我们希望在其中一个副本上所做的修改，在其它副本上也能随时观察到（即读取到）。</p>
+<p>&emsp;&emsp;当然我们心里都清楚，让所有副本在任何时刻都保持一致，是不可能的。因为副本之间的数据同步即使速度再快，也是需要时间的。不过幸运的是，我们其实并不关心所有时刻的数据一致性情况。只要系统能够保证，每当我们去「观察」的时候（即读取数据副本的时候），系统表现出来的行为是一致的，就可以了。换句话说，即使在两次「观察」之间，系统内部出现了短暂的数据不一致的情况，只要系统保证外部用户无论如何都发现不了，我们也是可以满意的。</p>
+<p>&emsp;&emsp;这意味着，我们应该从系统用户（使用系统的开发者）的角度，来对数据一致性的要求进行定义。</p>
+<p>实际上，早期的分布式系统设计者们对系统设计的要求，也是按照类似的思路进行的。在理想情况下，系统应该维持类似SSI (<em>single-system image</em>)[1]或<em>distribution transparency</em>[2]的特性。这两个概念要表达的核心意思是，系统内部有关分布式实现的复杂性应该对系统的外部用户透明；也就是说，对于系统的外部用户来说，系统应该表现得就好像只有一个单一的副本一样。如果系统能够提供这种「单一系统视图」或「透明性」，那么系统的使用者就能以比较简单的方式来使用系统；否则就可能带来很大的负担。</p>
+<p>&emsp;&emsp;系统“表现得就好像只有一个单一的副本”，这是一个相当「笼统」的说法。在此我们讨论3个具体的例子：</p>
+<ol>
+<li>我们先向一个副本节点写入<em>x</em>=42，然后读取数据对象<em>x</em>的值。显然，不管我们从哪个副本节点上进行读取，我们都希望读到最新写入的值（也就是42）。只有这样才合理。</li>
+<li>两个系统用户分别在两个副本节点上同时执行写操作。其中，用户A在第1个副本上执行<em>x</em>=42；用户B在第2个副本上执行<em>x</em>=43。然后用户C读取<em>x</em>的值。虽然两个写操作是「同时」进行的，但为了让系统“表现得像只有一个副本”，我们还是需要对它们进行一个先后排序。又因为它们是「同时」执行的，所以谁先谁后都有可能是合理的。如果我们认为<em>x</em>=42在<em>x</em>=43之前先执行，那么读取到的<em>x</em>的值就应该是43；反过来，如果我们认为<em>x</em>=43在x=42之前先执行，那么读取到的<em>x</em>的值就应该是42。</li>
+<li>用户A先在第1个副本上执行<em>x</em>=42，然后用户B再在第2个副本上执行<em>x</em>=43，最后用户C在第3个副本上读取<em>x</em>的值。仍然为了让系统“表现得像只有一个副本”，直觉上看，用户C读取到的<em>x</em>的值似乎应该是43。但是，也不一定非要如此。因为两个写操作是分别由用户A和用户B发起的，他们并不知道彼此谁先谁后（虽然从时间上看用户A的写操作确实在先）。所以，我们也可以选择认为用户B执行<em>x</em>=43在用户A执行<em>x</em>=42之前。这样的话，用户C读取到的<em>x</em>的值就应该是42。当然，根据本文后面的讨论，这种排序就不满足线性一致性了，但却满足顺序一致性。</li>
+</ol>
+<p>&emsp;&emsp;从这些例子不难看出，一个系统在数据一致性上的具体表现如何，取决于系统对关键事件（读写操作）的排序和执行采取什么样的规则和限制。比如在上面第3个例子中，出现了两种对于读写操作的排序。前一种排序是：</p>
+<ol>
+<li>用户A执行<em>x</em>=42。</li>
+<li>用户B执行<em>x</em>=43。</li>
+<li>用户C读取到<em>x</em>的值是43。</li>
+</ol>
+<p>而第3个例子中的后一种排序是：</p>
+<ol>
+<li>用户B执行<em>x</em>=43。</li>
+<li>用户A执行<em>x</em>=42。</li>
+<li>用户C读取到<em>x</em>的值是42。</li>
+</ol>
+<p>&emsp;&emsp;虽然这两种排序结果不同，但它们都做到了让系统“表现得像只有一个副本”。它们的不同在于，前一种排序遵循了不同用户的操作的时间先后顺序，而后一种排序没有。实际上，如果我们要求系统满足线性一致性，就只能得到前一种排序结果；而如果只要求系统满足顺序一致性，就有可能得到后一种排序结果（等看完本文后面的讨论，你就能自己得到这些结论）。</p>
+<p>&emsp;&emsp;可以这么说，一个分布式系统对于读写操作的某种排序和执行规则，就定义了一种一致性模型 (<em>consistency model</em>)。当一个系统选定了某种特定的一致性模型（比如线性一致性或顺序一致性），那么你就只能看到这种一致性模型所允许的那些操作序列。还是拿前面第3个例子来说明：如果你选定了线性一致性模型，那么系统就不会向你呈现后一种排序，你只能看到前一种排序。</p>
+<p>&emsp;&emsp;另外，在前面的三个例子中，不管系统最终给出了哪种排序结果，所有系统的用户其实都对那种操作序列达成了一致的看法。还有一些一致性模型，并不要求所有用户对操作排序的结果达成唯一的一种看法。这样的一致性模型稍显复杂，我们会放在下一篇文章中再讨论（比如因果一致性）。</p>
+<p>&emsp;&emsp;接下来，为了更清晰地认识一致性模型，我们来深入到线性一致性和顺序一致性的一些细节中去。</p>
+<h3 id="线性一致性和顺序一致性"><a href="#线性一致性和顺序一致性" class="headerlink" title="线性一致性和顺序一致性"></a>线性一致性和顺序一致性</h3><p>&emsp;&emsp;在讨论之前，我们先把组成分布式系统的一些关键概念定义清楚：</p>
+<ul>
+<li>整个系统可以看成由多个<strong>进程</strong>和一个共享的<strong>数据存储</strong>组成。对于数据存储的读写操作由进程发起。这里的进程，相当于本文前面提到的系统用户或系统使用者。</li>
+<li>同一个进程发起的读写操作是先后顺序执行的。注意，这里的「进程」概念跟我们平常编程时用到的进程有所不同，进程里面不再分多个线程了。</li>
+<li>数据存储可能有多个副本，但我们在讨论一致性模型的时候，把它看成一个整体来看待，不区分读写操作提交到了具体哪个副本上。</li>
+<li>每个操作的执行，从开始调用到执行结束，都需要花一定的时间。因此，一个进程发起的操作还没有执行完的时候，另一个进程的操作可能就已经开始了。</li>
+</ul>
+<p>&emsp;&emsp;可见，系统的多个进程是并发执行的。下面我们通过一个例子来说明这种并发执行的情况，进而解释顺序一致性的概念。</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/1.webp" alt="图片"></p>
+<p>&emsp;&emsp;上面是一个类似「时空图」的图像，表达了3个进程（<em>P</em>1、<em>P</em>2和<em>P</em>3）对于数据存储的读写执行过程。在这个图中，横向从左到右表示时间递增，黑色的线段表示每个操作的执行起止。线段上面的符号表示具体的读写操作：</p>
+<ul>
+<li><em>A</em> —&gt; <em>w**i</em>(<em>x</em>)，表示一个写操作：第<em>i</em>个进程向数据对象<em>x</em>写入了值<em>A</em>。</li>
+<li><em>r**i</em>(<em>x</em>) —&gt; <em>A</em>，表示一个读操作：第<em>i</em>个进程从数据对象<em>x</em>中读到了值<em>A</em>。</li>
+</ul>
+<p>&emsp;&emsp;现在我们要考察的问题是：上图的这样一个执行过程，是否满足顺序一致性？要回答这个问题，我们首先得知道顺序一致性的定义是什么。</p>
+<p>&emsp;&emsp;<strong>顺序一致性</strong>定义[3,4]：如果一个并发执行过程所包含的所有读写操作能够重排成一个全局线性有序的序列，并且这个序列满足以下两个条件，那么这个并发执行过程就是满足顺序一致性的：</p>
+<ul>
+<li><strong>条件I</strong>：重排后的序列中每一个读操作返回的值，必须等于前面对同一个数据对象的最近一次写操作所写入的值。</li>
+<li><strong>条件II</strong>：原来每个进程中各个操作的执行先后顺序，在这个重排后的序列中必须保持一致。</li>
+</ul>
+<p>&emsp;&emsp;以上图的执行过程为例，我们重排所有的6个读写操作，可以得到如下的有序序列：</p>
+<ol>
+<li><em>A</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>A</em></li>
+<li><em>C</em> —&gt; <em>w**2</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>C</em></li>
+<li><em>B</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>B</em></li>
+</ol>
+<p>&emsp;&emsp;很容易看出，这个序列是满足前面顺序一致性定义中的两个条件的：</p>
+<ul>
+<li>条件I：在这个重排后的序列中，每个读操作都返回了前面最近一次写入的值，比如第2个操作读到的值<em>A</em>，是前面第1个操作写入的；第4个操作读到的值<em>C</em>，是前面第3个操作写入的。</li>
+<li>条件II：原来进程<em>P</em>1中的两个写操作，<em>A</em> —&gt; <em>w**1</em>(<em>x</em>)和<em>B</em> —&gt;<em>w**1</em>(<em>x</em>)，在这个重排后的序列中仍然保持了先后顺序。与此类似，原来进程<em>P</em>3中的3个读操作，在这个重排后的序列中也保持了原来的先后顺序。</li>
+</ul>
+<p>&emsp;&emsp;所以现在我们可以回答前面的问题了：上图中的执行过程，是满足顺序一致性的。</p>
+<p>&emsp;&emsp;你可能会问，顺序一致性为什么会这样定义呢？这个定义的初衷是什么？</p>
+<p>&emsp;&emsp;我们可以试着这样理解：首先，重排成一个全局线性有序的序列，相当于系统对外表现出了一种「假象」，原本多进程并发执行的操作，好像是顺序执行的一样。本文前面提到过，理想情况下，分布式系统应该“表现得像只有一个副本”一样。顺序一致性正是遵循了这种「系统假象」，系统对外表现就好像在操作一个单一的副本，执行顺序也必然是可以看做顺序执行的。而条件I规定了系统的表现是合理的（即合乎逻辑的）；条件II则保证了以任何进程的视角来看，它所发起的操作执行顺序都是符合它原本的预期的。总之，一个满足顺序一致性的系统，对外表现就好像总是在操作一个副本一样。</p>
+<p>&emsp;&emsp;我们再通过一个例子来看一看这个问题的反面——不满足顺序一致性的执行过程是怎样的。</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/2.webp" alt="图片"></p>
+<p>&emsp;&emsp;这个图中的执行过程，与前面第一个图的执行过程非常相似，只是进程<em>P</em>3的几个操作的执行顺序稍有变化。</p>
+<p>&emsp;&emsp;我们根据前面顺序一致性的定义再来试着对这个执行过程中的所有操作进行重排：首先根据条件II和进程<em>P</em>1的执行顺序，我们知道，<em>A</em> —&gt; <em>w**1</em>(<em>x</em>)一定要排在<em>B</em> —&gt; <em>w**1</em>(<em>x</em>)前面；再根据条件I，进程<em>P</em>1的<em>B</em> —&gt; <em>w**1</em>(<em>x</em>)一定要排在进程<em>P</em>3的<em>r**3</em>(<em>x</em>) —&gt; <em>B</em>前面。最后，再结合条件II和进程<em>P</em>3的执行顺序，我们能够得出结论，进程<em>P</em>1和进程<em>P</em>3的所有操作，在最终重排后的完整序列中，必然保持以下的顺序：</p>
+<ol>
+<li><em>A</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>B</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>B</em></li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>C</em></li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>A</em></li>
+</ol>
+<p>&emsp;&emsp;我们会发现，上面的序列有两个地方不满足条件I：</p>
+<ul>
+<li>第4个操作读到了值<em>C</em>，而前面最近一次写操作（第2个操作）所写入的值是<em>B</em>。</li>
+<li>第5个操作读到了值<em>A</em>，而前面最近一次写操作（也是第2个操作）所写入的值是<em>B</em>。</li>
+</ul>
+<p>&emsp;&emsp;我们还剩一个进程<em>P</em>2的写操作，即<em>C</em> —&gt; <em>w**2</em>(<em>x</em>)，没有放到最后这个序列中。也许我们可以试着将它放置到第3和第4个操作之间，这样就能把前面第一个不满足条件I的地方修复掉。但无论如何，也无法得到一个完全符合条件I和条件II的完整序列了。因此，前面第二个图中的执行过程，是不满足顺序一致性的。进一步说，如果一个系统的执行呈现出了这样的一种执行过程（如前面第二个图所示），那我们可以肯定地说，这个系统是没有遵守顺序一致性的。</p>
+<p>&emsp;&emsp;我们再来考察一下线性一致性的概念。线性一致性的定义[5]，与顺序一致性非常相似，也是试图把所有读写操作重排成一个全局线性有序的序列，但除了满足前面的条件I和条件II之外，还要同时满足一个条件：</p>
+<ul>
+<li><strong>条件III</strong>：不同进程的操作，如果在时间上不重叠，那么它们的执行先后顺序，在这个重排后的序列中必须保持一致。</li>
+</ul>
+<p>&emsp;&emsp;根据最新定义的条件III，我们来重新评判一下前面第一个图所展现出来的执行过程是不是满足它。为了阅读和讨论方便，我们把第一个图重新展示在下面：</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/3.webp" alt="图片"></p>
+<p>&emsp;&emsp;针对条件III，我们分析一下各个操作之间的先后顺序：</p>
+<ul>
+<li>进程<em>P</em>1的<em>B</em> —&gt; <em>w**1</em>(<em>x</em>)和进程<em>P</em>2的<em>C</em> —&gt; <em>w**2</em>(<em>x</em>)，在执行时间上是重叠的，所以它们的排序不受条件III的约束。即，在重排后的序列中，这两个操作谁先谁后都可以。同样，进程<em>P</em>1的<em>B</em> —&gt; <em>w**1</em>(<em>x</em>)和进程<em>P</em>3的<em>r**3</em>(<em>x</em>) —&gt; <em>A</em>，也是如此。</li>
+<li>进程<em>P</em>1的<em>A</em> —&gt; <em>w**1</em>(<em>x</em>)和进程<em>P</em>2的<em>C</em> —&gt; <em>w**2</em>(<em>x</em>)，在执行时间上是不重叠的，即前一个操作都执行完了，后一个操作才开始执行。那么，这两个操作就必须满足条件III了：在重排后的序列中，<em>A</em> —&gt; <em>w**1</em>(<em>x</em>)必须排在<em>C</em> —&gt; <em>w**2</em>(<em>x</em>)前面。</li>
+<li>与上面同样的道理，在重排后的序列中，进程<em>P</em>2的<em>C</em> —&gt;<em>w**2</em>(<em>x</em>)必须排在进程<em>P</em>3的<em>r**3</em>(<em>x</em>) —&gt; <em>A</em>之前。</li>
+</ul>
+<p>&emsp;&emsp;容易看出，在遵守这样的先后关系约束的前提下，不管怎么重排，都无法得到一个满足条件I的完整序列了。所以说，前面第一个图所示的满足顺序一致性的执行过程，是不满足线性一致性的。</p>
+<p>&emsp;&emsp;下面我们举一个满足线性一致性的例子：</p>
+<p><img src="https://raw.githubusercontent.com/yangtzeshore/images/main/%E5%88%86%E5%B8%83%E5%BC%8F/4.webp" alt="图片"></p>
+<p>&emsp;&emsp;上图的执行过程，所有操作重排后，可以得到如下的有序序列：</p>
+<ol>
+<li><em>A</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>A</em></li>
+<li><em>C</em> —&gt; <em>w**2</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>C</em></li>
+<li><em>B</em> —&gt; <em>w**1</em>(<em>x</em>)</li>
+<li><em>r**3</em>(<em>x</em>) —&gt; <em>B</em></li>
+</ol>
+<p>&emsp;&emsp;不难看出，这个序列是满足所有的条件I、条件II和条件III这三个条件的。因此，这个执行过程满足线性一致性。</p>
+<p>&emsp;&emsp;细心的你可能已经发现了，最后这个线性一致性的例子，得到的重排后的序列，与开始第一个顺序一致性的例子重排后的序列，完全相同。当然，这两个例子中原始的多进程并发执行过程，是不同的。这是符合预期的（没有什么可奇怪的）。</p>
+<p>&emsp;&emsp;现在我们可以仔细分析一下条件II和条件III，它们囊括了任意两个操作之间所有可能的先后关系：</p>
+<ul>
+<li>进程内的任意两个操作之间，总是先后顺序执行的（执行时间上不可能重叠）；而根据条件II，它们的先后顺序在最后重排后的序列中也会保持。</li>
+<li>不同进程的不同操作之间，在执行时间上可能重叠（并发执行），也可能不重叠。根据条件III，不重叠的两个操作，它们在时间上的先后顺序，在最后重排后的序列中会得以保持。而对于执行时间上重叠的两个操作，它们在最后重排后的序列中的先后顺序没有规定。</li>
+</ul>
+<p>&emsp;&emsp;最后，我们比较一下顺序一致性和线性一致性：</p>
+<ul>
+<li>它们都试图让系统“表现得像只有一个副本”一样。</li>
+<li>它们都保证了程序执行顺序不会被打乱。体现在条件II对于进程内各个操作的排序保持上。</li>
+<li>线性一致性考虑了时间先后顺序，而顺序一致性没有。</li>
+<li>满足线性一致性的执行过程，肯定都满足顺序一致性；反之不一定。</li>
+</ul>
+<p>&emsp;&emsp;注意一下上面第3点两者在时间先后顺序上的不同。这意味着：</p>
+<ul>
+<li>线性一致性隐含了时效性保证（recency guarantee）。它保证我们总是能读到数据最新的值。</li>
+<li>在顺序一致性中，我们有可能读到旧版本的数据。比如，在本文第一个顺序一致性的例子中，在进程<em>P</em>2将数据对象<em>x</em>的值写成了<em>C</em>之后，进程<em>P</em>3仍然读到了旧的值（<em>A</em>）。</li>
+</ul>
+<h3 id="最终一致性和它的特殊性"><a href="#最终一致性和它的特殊性" class="headerlink" title="最终一致性和它的特殊性"></a>最终一致性和它的特殊性</h3><p>&emsp;&emsp;我们在<a target="_blank" rel="noopener" href="https://yangtzeshore.github.io/2021/01/02/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-100-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E5%88%B0%E5%BA%95%E4%BB%80%E4%B9%88%E6%98%AF%E4%B8%80%E8%87%B4%E6%80%A7/">上一篇文章</a>中提到过，CAP定理[6]中的C，指的就是线性一致性 (<em>linearizability</em>)。它也经常被称为「强一致性」。</p>
+<p>&emsp;&emsp;根据CAP定理，当存在网络分区的时候，我们必须在可用性 (<em>availability</em>) 和强一致性之间进行取舍。</p>
+<p>&emsp;&emsp;另外，即使在没有网络分区存在的情况下，我们也必须在延迟 (<em>latency</em>) 和强一致性之间进行取舍[7]。这是因为，系统维持强一致性是有成本的。想要维持越强的一致性，就需要在副本节点之间做更多的通信和协调工作，因此会降低操作的总延迟，进而降低整个系统的性能。</p>
+<p>&emsp;&emsp;从20世纪90年代中期开始，互联网开始蓬勃发展，系统的规模也变得越来越大。人们设计大型分布式系统的指导思想，也逐步开始更倾向于系统的高可用性和高性能。取舍的结果就是，降低系统提供的一致性保障。这其中非常重要的一条思路就是最终一致性[2]。</p>
+<p>&emsp;&emsp;最终一致性的设计思路，不再试图提供单一系统视图 (SSI)，即不再试图让系统“表现得像只有一个副本”一样。它允许读到旧版本的数据。最终一致性的原始出处是论文[2]，作者在论文中给出的最终一致性的定义如下：</p>
+<blockquote>
+<p>Eventual consistency. This is a specific form of weak consistency; the storage system guarantees that if no new updates are made to the object, eventually all accesses will return the last updated value.(译文：最终一致性是弱一致性的一种特殊形式；存储系统保证，如果对象没有新的修改操作，那么所有的访问最终都会返回最新写入的值。)</p>
+</blockquote>
+<p>&emsp;&emsp;我们发现，虽然最终一致性和本文前面讨论的线性一致性或顺序一致性在命名上非常相似，但它的定义却与后两者存在非常大的差别。深层的原因在于，它们其实属于不同类别的系统属性 (<em>property</em>)。线性一致性和顺序一致性属于<em>safety property</em>（安全性）；而最终一致性属于<em>liveness property</em>（活性）[8]。</p>
+<p>&emsp;&emsp;一个并发程序或者一个分布式系统，它们的执行所展现出来的系统属性，可以分为两大类：</p>
+<ul>
+<li><strong><em>safety\</em></strong>：它表示「坏事」永远不会发生。比如，一个系统如果遵守线性一致性或顺序一致性，那么就永远不会出现违反三个（对于顺序一致性来说是两个）条件的执行过程。而一旦系统出现问题，<em>safety</em>被违反了，我们也能明确指出是在哪个时间点上出现意外的。</li>
+<li><strong><em>liveness\</em></strong>：它表示「好事」最终会发生。这种属性听起来会比较神奇：在任何一个时间点，你都无法判定<em>liveness</em>被违反了。因为，即使你期望的「好事」还没有发生，也不代表它未来不会发生。就像最终一致性一样，即使当前系统处于不一致的状态，也不代表未来系统就不会达到一致的状态。而只要系统存在“在未来某个时刻达到一致状态”的可能性，最终一致性就没有被违反。另外，可用性 (<em>availability</em>) 也属于<em>liveness</em>属性。</li>
+</ul>
+<p>&emsp;&emsp;由此可见，我们在前一小节之所以能够将线性一致性和顺序一致性放在一起讨论和比较，是因为它们都属于<em>safety</em>属性。而最终一致性属于<em>liveness</em>属性，跟这两者存在本质的区别。实际上，最终一致性有点名不副实，它更好的名字可能是收敛性 (<em>convergence</em>)，表示所有副本最终都会收敛到相同的值[9]。</p>
+<p>&emsp;&emsp;通常来说，只有当<em>safety</em>和<em>liveness</em>这两种属性被同时考虑时，一个系统才能提供有意义的系统保证[1]。而当系统设计者遵循最终一致性的设计思路时，相当于放弃了所有的<em>safety</em>属性。这意味着，对于系统使用者来说，你必须针对数据不一致的可能性做好补偿措施 (<em>compensation</em>)。这也是最终一致性系统难用的地方。但不管怎么说，最终一致性仍然被认为是系统提供数据一致性的最低要求[1]。</p>
+<h3 id="一致性的强弱关系"><a href="#一致性的强弱关系" class="headerlink" title="一致性的强弱关系"></a>一致性的强弱关系</h3><p>&emsp;&emsp;在本文开头，我们提到过，通常人们把线性一致性称为「强一致性」，把最终一致性称为「弱一致性」。但对于指代特定的一种一致性模型来说，「强一致性」和「弱一致性」都不是一个好名字。因为强和弱，是个相对的概念。</p>
+<p>&emsp;&emsp;根据本文前面的讨论，从线性一致性，到顺序一致性，再到最终一致性，一致性的强度依次减弱。但是，一致性模型的强弱关系，其实是有更严格的定义的：</p>
+<ul>
+<li>当且仅当一个一致性模型所能接受的执行过程，都能被另一个一致性模型所接受时（前者的集合是后者集合的子集），我们就说前者是比后者「更强」(stronger) 的一致性模型。</li>
+</ul>
+<p>&emsp;&emsp;按照这个更严格的强弱关系定义，线性一致性是比顺序一致性更强的一致性模型。这是因为，线性一致性比顺序一致性多了一个条件III，所以凡是满足线性一致性的执行过程，肯定也满足顺序一致性。</p>
+<p>&emsp;&emsp;我们仔细分析一下也能知道，一致性模型的强弱关系定义，是基于<em>safety</em>属性定义的。所以，将线性一致性或顺序一致性与最终一致性比较强弱，这并不是一个严格的做法。实际上，就像我们前一小节所讨论的，最终一致性在<em>safety</em>方面提供的保证为零，它是属于<em>liveness</em>的概念。一个系统可以在提供最终一致性的同时，也提供另外一种更强一点的带有<em>safety</em>属性的一致性（比如因果一致性）。</p>
+<h3 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h3><p>&emsp;&emsp;就如同我在之前另外一篇文章《<a target="_blank" rel="noopener" href="https://mp.weixin.qq.com/s?__biz=MzA4NTg1MjM0Mg==&amp;mid=2657261626&amp;idx=1&amp;sn=6b32cc7a7a62bee303a8d1c4952d9031&amp;scene=21#wechat_redirect">漫谈分布式系统、拜占庭将军问题与区块链</a>》中所指出的，<strong>理解问题本身比知道问题的答案要重要的多</strong>。本文中，我们辨析了线性一致性、顺序一致性、最终一致性这些概念，以及他们的关系和区别。由此我们了解到了分布式系统的一些核心问题，但我们并未讨论怎么解决这些问题。比如，采用什么算法才能提供线性一致性；面对最终一致性的系统，应该怎样编程，包括怎样处理边界情况，等等。相对于理解问题本身而言，这些反而都是细节。</p>
+<p>&emsp;&emsp;在这个系列的下一篇文章中，我们将依然遵循这样的思路，具体解析因果一致性，以及分布式系统更深层的事件排序问题。</p>
+<h3 id="参考文献："><a href="#参考文献：" class="headerlink" title="参考文献："></a>参考文献：</h3><ul>
+<li>[1] Peter Bailis, Ali Ghodsi, “Eventual Consistency Today: Limitations, Extensions, and Beyond”, 2013.</li>
+<li>[2] Werner Vogels, “Eventually Consistent”, 2008.</li>
+<li>[3] Leslie Lamport, “How to Make a Multiprocessor Computer That Correctly Executes Multiprocess Progranm”, 1979.</li>
+<li>[4] Mustaque Ahamad, Gil Neiger, James E. Burns, et al, “Causal Memory: Definitions, Implementation and Programming”, 1994.</li>
+<li>[5] Maurice P. Herlihy, Jeannette M. Wing, “Linearizability: A Correctness Condition for Concurrent Objects”, 1990.</li>
+<li>[6] Seth Gilbert, Nancy Lynch, “Brewer’s Conjecture and the Feasibility of Consistent, Available, Partition-Tolerant Web”, 2002.</li>
+<li>[7] Peter Bailis, Ali Ghodsi, et al, “Bolt-on Causal Consistency”, 2013.</li>
+<li>[8] Bowen Alpern, Fred B. Schneider, “Defining Liveness”, 1985.</li>
+<li>[9] Martin Kleppmann,《Designing Data-Intensive Applications》, 2017.</li>
+<li>[10] Prince Mahajan, Lorenzo Alvisi, Mike Dahlin, “Consistency, Availability, and Convergence”, 2011.</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+              <a href="/tags/%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86/" rel="tag"># 系统原理</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/01/03/ZigzagConversion/" rel="prev" title="Z 字形变换">
+      <i class="fa fa-chevron-left"></i> Z 字形变换
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/01/03/%E5%88%86%E5%B8%83%E5%BC%8F-%E7%B3%BB%E7%BB%9F%E5%8E%9F%E7%90%86-102-%E6%9D%A1%E5%88%86%E7%BC%95%E6%9E%90%E5%88%86%E5%B8%83%E5%BC%8F%EF%BC%9A%E5%9B%A0%E6%9E%9C%E4%B8%80%E8%87%B4%E6%80%A7%E5%92%8C%E7%9B%B8%E5%AF%B9%E8%AE%BA%E6%97%B6%E7%A9%BA/" rel="next" title="分布式系统原理——102. 条分缕析分布式：因果一致性和相对论时空">
+      分布式系统原理——102. 条分缕析分布式：因果一致性和相对论时空 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E8%87%B4%E6%80%A7%E6%A8%A1%E5%9E%8B%E7%9A%84%E6%9D%A5%E5%8E%86"><span class="nav-number">2.</span> <span class="nav-text">一致性模型的来历</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BA%BF%E6%80%A7%E4%B8%80%E8%87%B4%E6%80%A7%E5%92%8C%E9%A1%BA%E5%BA%8F%E4%B8%80%E8%87%B4%E6%80%A7"><span class="nav-number">3.</span> <span class="nav-text">线性一致性和顺序一致性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%E5%92%8C%E5%AE%83%E7%9A%84%E7%89%B9%E6%AE%8A%E6%80%A7"><span class="nav-number">4.</span> <span class="nav-text">最终一致性和它的特殊性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%80%E8%87%B4%E6%80%A7%E7%9A%84%E5%BC%BA%E5%BC%B1%E5%85%B3%E7%B3%BB"><span class="nav-number">5.</span> <span class="nav-text">一致性的强弱关系</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">6.</span> <span class="nav-text">小结</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83%E6%96%87%E7%8C%AE%EF%BC%9A"><span class="nav-number">7.</span> <span class="nav-text">参考文献：</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Peng Chen</p>
+  <div class="site-description" itemprop="description">彭晨的简单记录</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">144</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">9</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">21</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="mailto:772307865@qq.com" title="E-Mail → mailto:772307865@qq.com" rel="noopener" target="_blank"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Peng Chen</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'ccc38a4b622b8527424c',
+      clientSecret: '0e4d8c63f1c5b609eddc7005aeaab0cf15c0235f',
+      repo        : 'comments',
+      owner       : 'yangtzeshore',
+      admin       : ['yangtzeshore'],
+      id          : '4bbad892bb9c5c6999203830bca5016d',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+</body>
+</html>
