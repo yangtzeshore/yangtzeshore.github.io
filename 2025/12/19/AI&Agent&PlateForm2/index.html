@@ -19,22 +19,22 @@
   <meta name="author" content="Chen Peng">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这是一个非常宏大且具有实战价值的课题。在 AI Agent 走向企业级应用的过程中，“从烟囱式开发转向平台化架构”几乎是所有技术团队都会面临的必然选择。 考虑到开题范围很大，这篇技术博客将分为四篇来介绍。今天我们先深入探讨最核心、也是感知最迫切的第一部分：《企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现》。 这部分内容将重点解决“API 调用乱象”、“私有与公网模型混杂">
+    <meta name="description" content="这是《企业级 AI Agent 平台建设》系列的第二篇。在上篇中，我们讨论了如何通过“统一网关”控制流量。本篇将聚焦于如何打破企业内部的资源壁垒，将散落在各处的 API 和数据转化为 Agent 可以直接调用的“原子能力”。  企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具引言如果说 AI 网关是 Agent 平台的“大脑入口”，那么原子能力池 (Atomic">
 <meta property="og:type" content="article">
-<meta property="og:title" content="企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现">
-<meta property="og:url" content="https://yangtzeshore.github.io/2025/12/18/AI&Agent&PlateForm1/index.html">
+<meta property="og:title" content="企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具">
+<meta property="og:url" content="https://yangtzeshore.github.io/2025/12/19/AI&Agent&PlateForm2/index.html">
 <meta property="og:site_name" content="Pengchen&#39;s Blog">
-<meta property="og:description" content="这是一个非常宏大且具有实战价值的课题。在 AI Agent 走向企业级应用的过程中，“从烟囱式开发转向平台化架构”几乎是所有技术团队都会面临的必然选择。 考虑到开题范围很大，这篇技术博客将分为四篇来介绍。今天我们先深入探讨最核心、也是感知最迫切的第一部分：《企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现》。 这部分内容将重点解决“API 调用乱象”、“私有与公网模型混杂">
+<meta property="og:description" content="这是《企业级 AI Agent 平台建设》系列的第二篇。在上篇中，我们讨论了如何通过“统一网关”控制流量。本篇将聚焦于如何打破企业内部的资源壁垒，将散落在各处的 API 和数据转化为 Agent 可以直接调用的“原子能力”。  企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具引言如果说 AI 网关是 Agent 平台的“大脑入口”，那么原子能力池 (Atomic">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2025-12-18T06:22:16.000Z">
-<meta property="article:modified_time" content="2025-12-18T06:23:33.933Z">
+<meta property="article:published_time" content="2025-12-19T02:11:35.000Z">
+<meta property="article:modified_time" content="2025-12-19T02:12:48.707Z">
 <meta property="article:author" content="Chen Peng">
-<meta property="article:tag" content="AI Agent platform Gateway">
+<meta property="article:tag" content="AI Agent platform Atomic">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现 - Pengchen&#39;s Blog</title>
+  <title>企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具 - Pengchen&#39;s Blog</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -200,7 +200,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现"></span>
+            <span id="subtitle" data-typed-text="企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具"></span>
           
         </div>
 
@@ -211,8 +211,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2025-12-18 14:22" pubdate>
-          2025年12月18日 下午
+        <time datetime="2025-12-19 10:11" pubdate>
+          2025年12月19日 上午
         </time>
       </span>
     
@@ -223,7 +223,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.3k 字
+          1.2k 字
         
       </span>
     
@@ -234,7 +234,7 @@
         
         
         
-          11 分钟
+          10 分钟
         
       </span>
     
@@ -271,70 +271,84 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现</h1>
+            <h1 id="seo-header">企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这是一个非常宏大且具有实战价值的课题。在 AI Agent 走向企业级应用的过程中，<strong>“从烟囱式开发转向平台化架构”</strong>几乎是所有技术团队都会面临的必然选择。</p>
-<p>考虑到开题范围很大，这篇技术博客将分为四篇来介绍。今天我们先深入探讨最核心、也是感知最迫切的第一部分：<strong>《企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现》</strong>。</p>
-<p>这部分内容将重点解决“API 调用乱象”、“私有与公网模型混杂”以及“协议不统一”的问题。</p>
+                <p>这是《企业级 AI Agent 平台建设》系列的第二篇。在上篇中，我们讨论了如何通过“统一网关”控制流量。本篇将聚焦于如何打破企业内部的资源壁垒，将散落在各处的 API 和数据转化为 Agent 可以直接调用的“原子能力”。</p>
 <hr>
-<h1 id="企业级-AI-Agent-平台建设指南（一）：统一-AI-网关的架构与实现"><a href="#企业级-AI-Agent-平台建设指南（一）：统一-AI-网关的架构与实现" class="headerlink" title="企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现"></a>企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现</h1><h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>随着大语言模型（LLM）技术的爆发，企业内部的 AI 应用呈现出“野蛮生长”态势。开发者往往针对特定业务独立构建 Agent，导致了严重的“烟囱效应”：模型密钥散落在各个代码库、不同供应商的 API 协议迥异、Token 成本难以追踪、私有部署模型与公网 API 缺乏统一调度。</p>
-<p>为了解决这些问题，构建一个<strong>统一 AI 网关 (Unified AI Gateway)</strong> 成了平台化建设的首要任务。它不仅是流量的入口，更是企业 AI 能力的“神经中枢”。</p>
+<h1 id="企业级-AI-Agent-平台建设指南（二）：原子能力池——从异构资源到标准化工具"><a href="#企业级-AI-Agent-平台建设指南（二）：原子能力池——从异构资源到标准化工具" class="headerlink" title="企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具"></a>企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具</h1><h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>如果说 AI 网关是 Agent 平台的“大脑入口”，那么<strong>原子能力池 (Atomic Capabilities Pool)</strong> 则是 Agent 的“四肢”与“外挂存储”。</p>
+<p>在企业实际场景中，Agent 往往面临两个痛点：</p>
+<ol>
+<li><strong>工具碎片化</strong>：现有的 ERP、CRM 或自研系统接口设计初衷是给人类程序员调用的，Agent 难以理解其语义。</li>
+<li><strong>知识孤岛化</strong>：各部门的 PDF、Wiki、数据库分散，检索协议不一，导致 RAG（检索增强生成）效果难以标准化。</li>
+</ol>
+<p>本文将探讨如何通过<strong>语义化包装 (Semantic Wrapping)</strong> 和<strong>统一检索架构</strong>来解决这些问题。</p>
 <hr>
-<h2 id="1-核心挑战：屏蔽异构性"><a href="#1-核心挑战：屏蔽异构性" class="headerlink" title="1. 核心挑战：屏蔽异构性"></a>1. 核心挑战：屏蔽异构性</h2><p>在 Agent 场景下，网关需要处理的异构性远超传统微服务。</p>
-<ul>
-<li><strong>协议异构</strong>：OpenAI 使用 <code>/v1/chat/completions</code>，Anthropic 有自己的格式，而自研的 CV&#x2F;NLP 小模型可能基于 gRPC 或 Fast API。</li>
-<li><strong>部署异构</strong>：公网 API（如 GPT-4）与私有化部署（如基于 vLLM 部署的 Llama-3）并存。</li>
-<li><strong>算力异构</strong>：不同任务对推理成本和延迟的要求不同。</li>
-</ul>
-<h3 id="1-1-协议标准化的代码实现"><a href="#1-1-协议标准化的代码实现" class="headerlink" title="1.1 协议标准化的代码实现"></a>1.1 协议标准化的代码实现</h3><p>一个优秀的网关应将所有底层模型抽象为 <strong>OpenAI 兼容协议</strong>。以下是一个基于 Python 伪代码实现的简单抽象层示例，展示如何封装不同模型供应商：</p>
+<h2 id="1-工具箱标准化：从-API-到-Semantic-Tool"><a href="#1-工具箱标准化：从-API-到-Semantic-Tool" class="headerlink" title="1. 工具箱标准化：从 API 到 Semantic Tool"></a>1. 工具箱标准化：从 API 到 Semantic Tool</h2><p>传统的 RESTful API 侧重于路径（Path）和方法（Method），而 Agent 调用的核心在于<strong>语义描述</strong>。</p>
+<h3 id="1-1-语义化包装：基于-JSON-Schema"><a href="#1-1-语义化包装：基于-JSON-Schema" class="headerlink" title="1.1 语义化包装：基于 JSON Schema"></a>1.1 语义化包装：基于 JSON Schema</h3><p>平台需要建立一个“工具注册中心 (Tool Registry)”，将传统的 API 自动转换为 LLM 易于理解的格式。</p>
+<p><strong>代码示例：将企业内部查询接口封装为标准化 Tool</strong></p>
 <p>Python</p>
-<figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><code class="hljs ruby">import abc<br><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">ModelProvider</span>(metaclass=abc.<span class="hljs-title class_">ABCMeta</span>):<br>    <span class="hljs-variable">@abc</span>.abstractmethod<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">generate</span>(<span class="hljs-params"><span class="hljs-variable language_">self</span>, <span class="hljs-symbol">prompt:</span> str, **kwargs</span>):<br>        pass<br><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">OpenAIVendor</span>(<span class="hljs-title class_">ModelProvider</span>):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">generate</span>(<span class="hljs-params"><span class="hljs-variable language_">self</span>, prompt, **kwargs</span>):<br>        <span class="hljs-comment"># 调用 OpenAI SDK</span><br>        <span class="hljs-keyword">return</span> openai_client.chat.completions.create(model=kwargs[<span class="hljs-string">&#x27;model&#x27;</span>], messages=[&#123;<span class="hljs-string">&quot;role&quot;</span>: <span class="hljs-string">&quot;user&quot;</span>, <span class="hljs-string">&quot;content&quot;</span>: prompt&#125;])<br><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">LocalVLLMVendor</span>(<span class="hljs-title class_">ModelProvider</span>):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">generate</span>(<span class="hljs-params"><span class="hljs-variable language_">self</span>, prompt, **kwargs</span>):<br>        <span class="hljs-comment"># 适配私有部署的 vLLM 格式</span><br>        <span class="hljs-keyword">return</span> requests.post(<span class="hljs-string">&quot;http://internal-vllm-cluster/v1/completions&quot;</span>, json=&#123;<span class="hljs-string">&quot;prompt&quot;</span>: prompt&#125;)<br><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">GatewayRouter</span>:<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">route</span>(<span class="hljs-params"><span class="hljs-variable language_">self</span>, request</span>):<br>        provider = <span class="hljs-variable language_">self</span>.get_provider(request.model_tag)<br>        <span class="hljs-comment"># 统一返回标准化的 JSON</span><br>        <span class="hljs-keyword">return</span> provider.generate(request.prompt)<br></code></pre></td></tr></table></figure>
+<figure class="highlight angelscript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs angelscript"><span class="hljs-keyword">from</span> pydantic <span class="hljs-keyword">import</span> BaseModel, Field<br><span class="hljs-keyword">from</span> typing <span class="hljs-keyword">import</span> Annotated<br><br><span class="hljs-keyword">class</span> <span class="hljs-symbol">InventoryQuery</span>(<span class="hljs-symbol">BaseModel</span>):<br>    &quot;&quot;&quot;用于查询企业内部库存系统的工具&quot;&quot;&quot;<br>    <span class="hljs-symbol">sku_id: <span class="hljs-symbol">Annotated</span></span>[<span class="hljs-symbol">str, <span class="hljs-symbol">Field</span></span>(<span class="hljs-symbol">description</span>=&quot;商品的<span class="hljs-symbol">SKU</span>唯一标识符&quot;)]<br>    <span class="hljs-symbol">warehouse_id: <span class="hljs-symbol">Annotated</span></span>[<span class="hljs-symbol">str, <span class="hljs-symbol">Field</span></span>(<span class="hljs-symbol">description</span>=&quot;仓库<span class="hljs-symbol">ID</span>，可选&quot;, <span class="hljs-symbol">default</span>=&quot;<span class="hljs-symbol">ALL</span>&quot;)]<br><br># 平台层将此模型自动转化为 <span class="hljs-symbol">OpenAI</span> 格式的 <span class="hljs-symbol">JSON</span> <span class="hljs-symbol">Schema</span><br><span class="hljs-symbol">tool_definition</span> = &#123;<br>    <span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;function&quot;</span>,<br>    <span class="hljs-string">&quot;function&quot;</span>: &#123;<br>        <span class="hljs-string">&quot;name&quot;</span>: <span class="hljs-string">&quot;query_inventory&quot;</span>,<br>        <span class="hljs-string">&quot;description&quot;</span>: <span class="hljs-string">&quot;查询特定商品的实时库存量&quot;</span>,<br>        <span class="hljs-string">&quot;parameters&quot;</span>: InventoryQuery.model_json_schema()<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
 
+<h3 id="1-2-引入-MCP-协议：生态统一的新趋势"><a href="#1-2-引入-MCP-协议：生态统一的新趋势" class="headerlink" title="1.2 引入 MCP 协议：生态统一的新趋势"></a>1.2 引入 MCP 协议：生态统一的新趋势</h3><p><strong>MCP (Model Context Protocol)</strong> 是由 Anthropic 提出的开放标准，旨在规范 Agent 如何连接外部数据源和工具。在建设平台时，支持 MCP 协议可以实现“一次封装，多模型通用”，避免针对 GPT、Claude 或私有 Llama 重复编写适配代码。</p>
 <hr>
-<h2 id="2-智能路由与多级降级策略"><a href="#2-智能路由与多级降级策略" class="headerlink" title="2. 智能路由与多级降级策略"></a>2. 智能路由与多级降级策略</h2><p>在 Agent 工作流中，可靠性是第一位的。网关必须具备智能路由能力，以应对 API 供应商宕机或限流。</p>
-<h3 id="2-1-路由规则定义"><a href="#2-1-路由规则定义" class="headerlink" title="2.1 路由规则定义"></a>2.1 路由规则定义</h3><p>我们可以通过 YAML 配置定义灵活的路由逻辑：</p>
-<p>YAML</p>
-<figure class="highlight dts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs dts"><span class="hljs-symbol">routes:</span><br>  - path: <span class="hljs-string">&quot;/v1/agent/coding&quot;</span><br><span class="hljs-symbol">    default_model:</span> <span class="hljs-string">&quot;gpt-4-turbo&quot;</span><br><span class="hljs-symbol">    fallback_strategy:</span> <span class="hljs-string">&quot;priority_sequence&quot;</span><br><span class="hljs-symbol">    models:</span><br>      - id: <span class="hljs-string">&quot;gpt-4-turbo&quot;</span><br><span class="hljs-symbol">        priority:</span> <span class="hljs-number">1</span><br><span class="hljs-symbol">        weight:</span> <span class="hljs-number">80</span><br>      - id: <span class="hljs-string">&quot;claude-3-opus&quot;</span><br><span class="hljs-symbol">        priority:</span> <span class="hljs-number">2</span><br><span class="hljs-symbol">        weight:</span> <span class="hljs-number">20</span><br>      - id: <span class="hljs-string">&quot;private-llama-3-70b&quot;</span>  <span class="hljs-meta"># 兜底：当外网中断或成本超支时切换</span><br><span class="hljs-symbol">        priority:</span> <span class="hljs-number">3</span><br></code></pre></td></tr></table></figure>
-
-<h3 id="2-2-熔断与动态限流"><a href="#2-2-熔断与动态限流" class="headerlink" title="2.2 熔断与动态限流"></a>2.2 熔断与动态限流</h3><p>Agent 往往会产生大量的并发调用（例如一个任务分解出 10 个子任务）。网关层需引入 **令牌桶算法 (Token Bucket)**，针对 <code>AppID</code> 进行 Token 维度的限流，而非简单的请求数限流，从而保护底层算力资源。</p>
-<hr>
-<h2 id="3-增强能力：可观测性与安全护栏"><a href="#3-增强能力：可观测性与安全护栏" class="headerlink" title="3. 增强能力：可观测性与安全护栏"></a>3. 增强能力：可观测性与安全护栏</h2><h3 id="3-1-统一-Trace-追踪"><a href="#3-1-统一-Trace-追踪" class="headerlink" title="3.1 统一 Trace 追踪"></a>3.1 统一 Trace 追踪</h3><p>在 Agent 复杂链路中，一个用户请求可能触发多次模型调用和工具执行。网关必须在 Header 中注入 <code>Trace-ID</code>，并对接 <strong>LangFuse</strong> 或 <strong>LangSmith</strong>。</p>
-<blockquote>
-<p><strong>严谨引用</strong>：根据 <em>OpenTelemetry</em> 的标准，在 AI 网关层捕获 <code>Prompt Tokens</code> 和 <code>Completion Tokens</code> 是实现企业 AI 成本核算（Chargeback）的唯一准确手段。</p>
-</blockquote>
-<h3 id="3-2-数据脱敏-PII-Masking"><a href="#3-2-数据脱敏-PII-Masking" class="headerlink" title="3.2 数据脱敏 (PII Masking)"></a>3.2 数据脱敏 (PII Masking)</h3><p>为了合规性，网关在将数据发送至公网 API 前，必须经过脱敏层。</p>
+<h2 id="2-知识库标准化：构建统一-RAG-Hub"><a href="#2-知识库标准化：构建统一-RAG-Hub" class="headerlink" title="2. 知识库标准化：构建统一 RAG Hub"></a>2. 知识库标准化：构建统一 RAG Hub</h2><p>RAG 是解决 Agent “幻觉”的关键。但简单的向量搜索在复杂企业文档（如财务报表、技术手册）面前往往失效。</p>
+<h3 id="2-1-混合检索-Hybrid-Search-架构"><a href="#2-1-混合检索-Hybrid-Search-架构" class="headerlink" title="2.1 混合检索 (Hybrid Search) 架构"></a>2.1 混合检索 (Hybrid Search) 架构</h3><p>单一的向量检索（Vector Search）容易丢失关键词信息。平台层应强制推行<strong>向量 + 关键词</strong>的混合检索标准：</p>
+<p>$$Score &#x3D; \alpha \cdot S_{vector} + (1 - \alpha) \cdot S_{keyword}$$</p>
+<p>其中 $\alpha$ 是加权因子，通常取 0.5-0.7 之间，取决于业务场景。</p>
+<h3 id="2-2-标准化-RAG-链路"><a href="#2-2-标准化-RAG-链路" class="headerlink" title="2.2 标准化 RAG 链路"></a>2.2 标准化 RAG 链路</h3><p>我们在原子能力层抽象出一套标准流水线，业务方只需提供数据源，平台自动完成以下过程：</p>
 <table>
 <thead>
 <tr>
-<th><strong>输入内容</strong></th>
-<th><strong>脱敏处理后</strong></th>
-<th><strong>处理策略</strong></th>
+<th><strong>阶段</strong></th>
+<th><strong>核心组件</strong></th>
+<th><strong>技术要点</strong></th>
 </tr>
 </thead>
 <tbody><tr>
-<td>我的手机号是 13800138000</td>
-<td>我的手机号是 [PHONE_NUMBER]</td>
-<td>正则匹配 + 替换</td>
+<td><strong>解析</strong></td>
+<td>Layout Analysis</td>
+<td>识别 PDF 中的表格、标题、图片上下文</td>
 </tr>
 <tr>
-<td>客户张三的简历</td>
-<td>客户 [NAME] 的简历</td>
-<td>NER (命名实体识别) 模型</td>
+<td><strong>切片</strong></td>
+<td>Recursive Character</td>
+<td>保持段落语义完整，支持 Overlap（重叠）</td>
+</tr>
+<tr>
+<td><strong>向量化</strong></td>
+<td>Embedding API</td>
+<td>屏蔽本地模型 (BGE) 与公网模型 (OpenAI) 差异</td>
+</tr>
+<tr>
+<td><strong>精排</strong></td>
+<td><strong>Rerank Model</strong></td>
+<td>引入交叉熵模型（如 BGE-Reranker）对初筛结果进行二次排序</td>
 </tr>
 </tbody></table>
 <hr>
-<h2 id="4-技术选型建议"><a href="#4-技术选型建议" class="headerlink" title="4. 技术选型建议"></a>4. 技术选型建议</h2><p>对于“建设统一平台”，在网关层我不建议从零开发，推荐基于现有开源方案进行“二次开发”：</p>
-<ol>
-<li><strong>APISIX &#x2F; Kong</strong>：如果你需要极高的并发处理能力和成熟的插件系统，可以在其基础上开发 AI 插件。</li>
-<li><strong>LiteLLM &#x2F; One-API</strong>：这是目前社区最火的专门针对大模型的网关，已经实现了几十种模型的协议转换，非常适合作为 Agent 平台的底层组件。</li>
-<li>**MCP (Model Context Protocol)**：由 Anthropic 近期提出的协议。在建设网关时，建议关注此协议，它将深刻影响 Agent 与工具（Tools）之间的交互标准。</li>
-</ol>
+<h2 id="3-屏蔽“小模型”与“私有化”的复杂性"><a href="#3-屏蔽“小模型”与“私有化”的复杂性" class="headerlink" title="3. 屏蔽“小模型”与“私有化”的复杂性"></a>3. 屏蔽“小模型”与“私有化”的复杂性</h2><p>除了 LLM，企业内还有大量的 CV（计算机视觉）和 NLP（自然语言处理）小模型。</p>
+<ul>
+<li><strong>模型封装化</strong>：将一个检测合同公章的 CV 模型，封装成一个 <code>SealDetectionTool</code>，对 Agent 而言，它只是一个返回 JSON 结果的普通工具。</li>
+<li><strong>私有化 Embedding 管理</strong>：针对敏感数据，原子能力池应内置私有部署的 Embedding 节点，确保敏感文本在向量化过程中不出内网。</li>
+</ul>
 <hr>
-<h2 id="5-结语与下一步"><a href="#5-结语与下一步" class="headerlink" title="5. 结语与下一步"></a>5. 结语与下一步</h2><p>统一网关解决了 Agent 平台的“接入”问题。然而，Agent 的强大不仅在于调用模型，更在于其<strong>对工具的编排和对知识的检索</strong>。</p>
-<p>在下一篇博文中，我们将深入探讨 <strong>《第二层：原子能力池——如何将企业私有 API 与 RAG 知识库标准化》</strong>，解决“工具烟囱”与“检索精度”问题。</p>
+<h2 id="4-关键痛点：动态权限与发现机制"><a href="#4-关键痛点：动态权限与发现机制" class="headerlink" title="4. 关键痛点：动态权限与发现机制"></a>4. 关键痛点：动态权限与发现机制</h2><p>在建设原子能力池时，最容易忽略的是<strong>权限隔离</strong>：</p>
+<ol>
+<li><strong>可见性隔离</strong>：财务 Agent 不应该在工具箱里“看到”人力资源的薪酬修改 API。</li>
+<li><strong>动态发现</strong>：平台应支持根据 Agent 的任务上下文，动态推荐最匹配的 5-10 个工具，而不是将成百上千个 API 全量塞给 LLM（避免超出上下文限制）。</li>
+</ol>
+<blockquote>
+<p><strong>严谨引用</strong>：根据 <em>AutoGPT</em> 及 <em>LangGraph</em> 的最佳实践，当候选工具超过 20 个时，LLM 的指令遵循能力会显著下降。因此，平台必须具备<strong>工具检索 (Tool Retrieval)</strong> 能力。</p>
+</blockquote>
+<hr>
+<h2 id="5-总结"><a href="#5-总结" class="headerlink" title="5. 总结"></a>5. 总结</h2><p>原子能力池的建设目标是：<strong>资源资产化，接口语义化</strong>。</p>
+<ul>
+<li><strong>API</strong> 不再是孤立的地址，而是带有描述、入参校验和权限控制的 <strong>Tool</strong>。</li>
+<li><strong>数据</strong> 不再是零散的文件，而是具备统一检索接口和重排序能力的 <strong>Knowledge Base</strong>。</li>
+</ul>
 
                 
               </div>
@@ -353,7 +367,7 @@
     
       <span class="category-chain">
         
-  <a href="/categories/Gateway/" class="category-chain-item">Gateway</a>
+  <a href="/categories/Atomic/" class="category-chain-item">Atomic</a>
   
   
 
@@ -368,7 +382,7 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/AI-Agent-platform-Gateway/" class="print-no-link">#AI Agent platform Gateway</a>
+        <a href="/tags/AI-Agent-platform-Atomic/" class="print-no-link">#AI Agent platform Atomic</a>
       
     </div>
   
@@ -380,8 +394,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现</div>
-      <div>https://yangtzeshore.github.io/2025/12/18/AI&amp;Agent&amp;PlateForm1/</div>
+      <div>企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具</div>
+      <div>https://yangtzeshore.github.io/2025/12/19/AI&amp;Agent&amp;PlateForm2/</div>
     </div>
     <div class="license-meta">
       
@@ -393,7 +407,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2025年12月18日</div>
+          <div>2025年12月19日</div>
         </div>
       
       
@@ -425,18 +439,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2025/12/19/AI&amp;Agent&amp;PlateForm2/" title="企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">企业级 AI Agent 平台建设指南（二）：原子能力池——从异构资源到标准化工具</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2025/12/09/Model&amp;Zoo/" title="驯服“模型动物园”：基于 Docker 的多模型统一运维实践">
-                        <span class="hidden-mobile">驯服“模型动物园”：基于 Docker 的多模型统一运维实践</span>
+                      <a href="/2025/12/18/AI&amp;Agent&amp;PlateForm1/" title="企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现">
+                        <span class="hidden-mobile">企业级 AI Agent 平台建设指南（一）：统一 AI 网关的架构与实现</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
